@@ -1,13 +1,38 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import useUrlState from "@ahooksjs/use-url-state";
 
 import Reaper from "./Reaper";
 import "./Wheel.scss";
+import colors from "../../utility/colors";
+import randomReaction from "../../utility/randomReaction";
 
-const MySlice = ({ slice }) => {
+const MySlice = ({ items }) => {
+  const params = new Proxy(new URLSearchParams(window.location.search), {
+    get: (searchParams, prop) => searchParams.get(prop),
+  });
+
+  let names = [];
+  let winner = "";
+  let newItems = [];
+  if (params.names) names = params.names.split(",");
+  if (params.winner) winner = params.winner;
+
+  for (let i = 0; i < names.length; i++) {
+    newItems[i] = {
+      text: names[i],
+    };
+  }
+
+  for (let i = 0; i < newItems.length; i++) {
+    newItems[i].color = colors[i];
+    newItems[i].reaction = randomReaction();
+  }
+
   const [prize, setPrize] = useState("");
   const [selectedPrize, setSelectedPrize] = useState(null);
   const [spinning, setSpinning] = useState(false);
   const [currentReaction, setCurrentReaction] = useState("resting");
+  const [urlState, setUrlState] = useUrlState({});
 
   const currentSlice = useRef();
   const rotation = useRef();
@@ -18,10 +43,36 @@ const MySlice = ({ slice }) => {
   const spinnerStyles = useRef();
   let tickerAnim;
 
-  const prizeOffset = Math.floor(180 / slice.length);
+  const prizeOffset = Math.floor(180 / newItems.length);
 
   // size of prize
-  const prizeSlice = 360 / slice.length;
+  const prizeSlice = 360 / newItems.length;
+
+  // useEffect(() => {
+  //   const params = new Proxy(new URLSearchParams(window.location.search), {
+  //     get: (searchParams, prop) => searchParams.get(prop),
+  //   });
+
+  //   let names = [];
+  //   let winner = "";
+
+  //   if (params.names) names = params.names.split(",");
+  //   if (params.winner) winner = params.winner;
+
+  //   names = names.filter((n) => n != winner);
+  //   console.log(names);
+
+  //   for (let i = 0; i < names.length; i++) {
+  //     newItems[i] = {
+  //       text: names[i],
+  //     };
+  //   }
+
+  //   for (let i = 0; i < newItems.length; i++) {
+  //     newItems[i].color = colors[i];
+  //     newItems[i].reaction = randomReaction();
+  //   }
+  // }, [params]);
 
   const spinertia = (min, max) => {
     min = Math.ceil(min);
@@ -74,19 +125,23 @@ const MySlice = ({ slice }) => {
     buttonRef.current.focus();
     rotation.current %= 360;
     selectPrize();
+
     setSpinning(false);
   };
 
   const selectPrize = () => {
     const selected = Math.floor(rotation.current / prizeSlice);
     setSelectedPrize(selected);
-    setCurrentReaction(slice[selected].reaction);
+    // setPrize(newItems[selected].text);
+    setUrlState({ winner: newItems[selected].text });
+
+    setCurrentReaction(newItems[selected].reaction);
   };
 
   return (
-    <section className="relative flex flex-col items-center justify-center py-24 bg-gray-50">
+    <section className="relative flex flex-col items-center justify-center py-12 bg-gray-50">
       <h2 className="mb-8 text-6xl font-medium text-center text-red-800 font-display">
-        The Spinning Wheel
+        Wheel
       </h2>
 
       {/* <p className="max-w-2xl mx-auto text-xl text-center mb-14">L</p> */}
@@ -98,15 +153,17 @@ const MySlice = ({ slice }) => {
           ref={spinnerRef}
           style={{
             "--rotate": rotation.current || 0,
-            background: `conic-gradient(from -90deg, ${slice
+            background: `conic-gradient(from -90deg, ${newItems
               .map(
                 ({ color }, i) =>
-                  `${color} 0 ${(100 / slice.length) * (slice.length - i)}%`
+                  `${color} 0 ${
+                    (100 / newItems.length) * (newItems.length - i)
+                  }%`
               )
               .reverse()}`,
           }}
         >
-          {slice.map(({ text, color, reaction }, i) => {
+          {newItems.map(({ text, color, reaction }, i) => {
             const rot = prizeSlice * i * -1 - prizeOffset;
 
             return (
@@ -125,14 +182,20 @@ const MySlice = ({ slice }) => {
           <Reaper reaction={currentReaction} />
         </figure>
         <div className="ticker" ref={tickerRef}></div>
-        <button
-          ref={buttonRef}
-          onClick={handleButtonClick}
-          className="btn-spin"
-        >
-          Spin That Wheel!
-        </button>
+        {newItems.length > 0 && (
+          <button
+            ref={buttonRef}
+            onClick={handleButtonClick}
+            className="btn-spin"
+          >
+            Spin That Wheel!
+          </button>
+        )}
       </div>
+
+      {newItems.length < 1 && <h2>Enter Some Values to get started...</h2>}
+
+      {prize && <h2>{prize}</h2>}
     </section>
   );
 };
